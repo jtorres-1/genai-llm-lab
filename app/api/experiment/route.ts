@@ -1,29 +1,48 @@
-import { NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
 export async function POST(req: Request) {
   try {
-    const { prompt, temperature, top_p, response, metrics } = await req.json()
+    const { prompt, temperature, top_p } = await req.json()
+
+    // temporary fake LLM response
+    const response =
+      `Fake LLM response for prompt: "${prompt}" at temp ${temperature}, top_p ${top_p}.`
+
+    // simple starter metrics
+    const wordCount = response.split(/\s+/).length
+    const sentenceCount = response.split(/[.!?]+/).filter(Boolean).length
+    const avgWordsPerSentence = sentenceCount ? wordCount / sentenceCount : wordCount
+
+    const metrics = {
+      wordCount,
+      sentenceCount,
+      avgWordsPerSentence,
+    }
+
     const experiment = await prisma.experiment.create({
-      data: { prompt, temperature, top_p, response, metrics },
+      data: {
+        prompt,
+        temperature,
+        top_p,
+        response,
+        metrics,
+      },
     })
-    return NextResponse.json(experiment)
-  } catch (error) {
-    console.error('Error saving experiment:', error)
-    return NextResponse.json({ error: 'Failed to save experiment' }, { status: 500 })
+
+    return Response.json(experiment)
+  } catch (err) {
+    console.error('Error in POST /api/experiment', err)
+    return new Response(JSON.stringify({ error: 'Failed to save experiment' }), {
+      status: 500,
+    })
   }
 }
 
 export async function GET() {
-  try {
-    const experiments = await prisma.experiment.findMany({
-      orderBy: { createdAt: 'desc' },
-    })
-    return NextResponse.json(experiments)
-  } catch (error) {
-    console.error('Error fetching experiments:', error)
-    return NextResponse.json({ error: 'Failed to fetch experiments' }, { status: 500 })
-  }
+  const experiments = await prisma.experiment.findMany({
+    orderBy: { createdAt: 'desc' },
+  })
+  return Response.json(experiments)
 }
